@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>IoT Weather Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <header><h1>IoT Weather Dashboard</h1></header>
+  <main>
+    <section class="cards">
+      <div class="card">
+        <h2>Temp (DHT)</h2>
+        <div id="temp-dht">-- °C</div>
+      </div>
+      <div class="card">
+        <h2>Humidity</h2>
+        <div id="humidity">-- %</div>
+      </div>
+      <div class="card">
+        <h2>Temp (BMP)</h2>
+        <div id="temp-bmp">-- °C</div>
+      </div>
+      <div class="card">
+        <h2>Pressure</h2>
+        <div id="pressure">-- hPa</div>
+      </div>
+    </section>
+
+    <section>
+      <canvas id="chart" width="800" height="300"></canvas>
+    </section>
+  </main>
+
+  <footer id="footer">Waiting for data...</footer>
+
+<script>
+const MAX_POINTS = 60;
+const labels = [];
+const dataTempDht = [];
+const dataHum = [];
+const dataTempBmp = [];
+const dataPressure = [];
+
+const ctx = document.getElementById('chart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      { label: 'Temp DHT (°C)', data: dataTempDht, borderColor: 'red', fill: false },
+      { label: 'Temp BMP (°C)', data: dataTempBmp, borderColor: 'orange', fill: false },
+      { label: 'Humidity (%)', data: dataHum, borderColor: 'blue', fill: false },
+      { label: 'Pressure (hPa)', data: dataPressure, borderColor: 'green', fill: false }
+    ]
+  },
+  options: {
+    animation: false,
+    responsive: true,
+    scales: {
+      y: { beginAtZero: false }
+    }
+  }
+});
+
+const socket = io();
+socket.on('connect', () => {
+  document.getElementById('footer').innerText = 'Connected to server. Waiting for sensor data...';
+});
+
+socket.on('sensor-data', (payload) => {
+  const now = new Date().toLocaleTimeString();
+  if (payload.temperature_dht !== undefined && payload.temperature_dht !== null)
+    document.getElementById('temp-dht').innerText = payload.temperature_dht + ' °C';
+  if (payload.humidity !== undefined && payload.humidity !== null)
+    document.getElementById('humidity').innerText = payload.humidity + ' %';
+  if (payload.temperature_bmp !== undefined && payload.temperature_bmp !== null)
+    document.getElementById('temp-bmp').innerText = payload.temperature_bmp + ' °C';
+  if (payload.pressure_hpa !== undefined && payload.pressure_hpa !== null)
+    document.getElementById('pressure').innerText = payload.pressure_hpa + ' hPa';
+
+  labels.push(now);
+  dataTempDht.push(payload.temperature_dht || null);
+  dataTempBmp.push(payload.temperature_bmp || null);
+  dataHum.push(payload.humidity || null);
+  dataPressure.push(payload.pressure_hpa || null);
+
+  if (labels.length > MAX_POINTS) {
+    labels.shift();
+    dataTempDht.shift();
+    dataTempBmp.shift();
+    dataHum.shift();
+    dataPressure.shift();
+  }
+  chart.update();
+});
+</script>
+</body>
+</html>
